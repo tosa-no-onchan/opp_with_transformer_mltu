@@ -4,10 +4,22 @@ ROS2 ML Path Planner with Transformer
   
 Obstacle Path Planner with Transformer and mltu  
 
-1. How to trainning.  
-   $ python transformer_opp_mltu.py  
+#### 1. How to trainning.  
+
+    $ python train_transformer_opp_mltu.py  
+
+#### 2. model freeze  
+
+    $ python test-model-freeze.py  
+
+#### 3. predict  
+
+    $ python inferencModel.py  
+    unzip a.model_frozen.pb.zip
+    use Models/test_opp/a.model_frozen.pb  
   
-2. Env.  
+#### 3. Env.  
+
    tensorflow==2.16.1  with cuda  
    keras==3.3.3  
    mlut==1.2.5  
