@@ -17,6 +17,7 @@ Obstacle Path Planner with Transformer and mltu
     $ python inferencModel.py  
     unzip a.model_frozen.pb.zip
     use Models/test_opp/a.model_frozen.pb  
+    train loss > 0.7  
   
 #### 3. Env.  
 
