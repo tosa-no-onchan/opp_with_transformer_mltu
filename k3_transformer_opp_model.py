@@ -86,6 +86,7 @@ class SpeechFeatureEmbedding(layers.Layer):
             self.num_hid, 11, strides=2, padding="same", activation="relu"
         )
 
+    #def __call__(self, x):
     def call(self, x):
         x = self.conv1(x)
         x = self.conv2(x)
@@ -114,8 +115,8 @@ https://keras.io/examples/nlp/text_classification_with_transformer/
 class TransformerEncoder(layers.Layer):
     def __init__(self, embed_dim, num_heads, feed_forward_dim, rate=0.1):
         super().__init__()
-        self.embed_dim=embed_dim
-        self.num_heads=num_heads
+        self.embed_dim=embed_dim    # num_hid=200
+        self.num_heads=num_heads    # = 2
         self.feed_forward_dim=feed_forward_dim
         self.rate=rate
 
@@ -133,6 +134,10 @@ class TransformerEncoder(layers.Layer):
 
     # add by nishi
     def build(self, input_shape):
+        # https://qiita.com/toyohisa/items/758af4073f0f08312b81
+        # https://keras.io/api/layers/attention_layers/multi_head_attention/
+        # https://www.tensorflow.org/api_docs/python/tf/keras/layers/MultiHeadAttention
+        # #https://qiita.com/making111/items/009ef281ddef44b36941
         self.att = layers.MultiHeadAttention(num_heads=self.num_heads, key_dim=self.embed_dim)
         self.ffn = keras.Sequential(
             [
@@ -146,6 +151,7 @@ class TransformerEncoder(layers.Layer):
         self.dropout2 = layers.Dropout(self.rate)
 
 
+    #def __call__(self, inputs, training=False):
     def call(self, inputs, training=False):
         attn_output = self.att(inputs, inputs)
         attn_output = self.dropout1(attn_output, training=training)
@@ -235,6 +241,7 @@ class TransformerDecoder(layers.Layer):
         )
         return tf.tile(mask, mult)
 
+    #def __call__(self, enc_out, target):
     def call(self, enc_out, target):
         input_shape = tf.shape(target)
         batch_size = input_shape[0]
@@ -281,17 +288,20 @@ next token.
 class Transformer(keras.Model):
     def __init__(
         self,
-        num_hid=64,
-        num_head=2,
-        num_feed_forward=128,
-        source_maxlen=100,
-        target_maxlen=100,
+        num_hid=200,             # 200
+        num_head=2,             # 2
+        #num_feed_forward=244,   # 244
+        num_feed_forward=488,   # 488
+        source_maxlen=150,      # 150
+        target_maxlen=150,      # 150
         num_layers_enc=4,
-        num_layers_dec=1,
-        num_classes=10,
+        num_layers_dec=2,
+        num_classes=50,
         d_provider=0,    # add by nishi 0:original 1:mltu provider
+        **kwargs        # add by nishi 2024.12.1
     ):
-        super().__init__()
+        #super().__init__()
+        super().__init__(**kwargs)      # changed by nishi 2024.12.1
         self.loss_metric = keras.metrics.Mean(name="loss")
         self.num_layers_enc = num_layers_enc
         self.num_layers_dec = num_layers_dec
@@ -331,7 +341,9 @@ class Transformer(keras.Model):
             y = getattr(self, f"dec_layer_{i}")(enc_out, y)
         return y
 
-    def call(self, inputs):
+    #def call(self, inputs):
+    def ex(self, inputs):               # changed by nishi 2024.12.2
+        #  inputs=['tf.Tensor(shape=(None, 600, 122), dtype=float32)', 'tf.Tensor(shape=(None, 149), dtype=int64)']
         source = inputs[0]
         target = inputs[1]
         x = self.encoder(source)
@@ -344,7 +356,8 @@ class Transformer(keras.Model):
         config = super().get_config()
         config.update(
             {
-                "classifier": self.classifier,
+                # coment out by nishi 2024.12.1  keras saved model に対する inferencModel.py での run 時に エラーになるから。いらないみたい。
+                #"classifier": self.classifier,
                 #"classifier": self.classifier.get_config(),
             }
         )
@@ -378,10 +391,11 @@ class Transformer(keras.Model):
             source = bt[0]
             target = bt[1]
 
+        # ここは、speech to text 特有の処理か
         dec_input = target[:, :-1]
         dec_target = target[:, 1:]
         with tf.GradientTape() as tape:
-            preds = self([source, dec_input])
+            preds = self.ex([source, dec_input])
             one_hot = tf.one_hot(dec_target, depth=self.num_classes)
             mask = tf.math.logical_not(tf.math.equal(dec_target, 0))
             #loss = model.compute_loss(None, one_hot, preds, sample_weight=mask)
@@ -403,9 +417,10 @@ class Transformer(keras.Model):
             source = bt[0]
             target = bt[1]
 
+        # ここは、speech to text 特有の処理か
         dec_input = target[:, :-1]
         dec_target = target[:, 1:]
-        preds = self([source, dec_input])
+        preds = self.ex([source, dec_input])
         one_hot = tf.one_hot(dec_target, depth=self.num_classes)
         mask = tf.math.logical_not(tf.math.equal(dec_target, 0))
         #loss = model.compute_loss(None, one_hot, preds, sample_weight=mask)
@@ -413,6 +428,7 @@ class Transformer(keras.Model):
         self.loss_metric.update_state(loss)
         return {"loss": self.loss_metric.result()}
 
+    #@tf.function(input_signature=[tf.TensorSpec([None,600,122], tf.float32),tf.TensorSpec([], tf.int32)])
     def generate(self, source, target_start_token_idx):
         """Performs inference over one batch of inputs using greedy decoding."""
         bs = tf.shape(source)[0]
@@ -437,6 +453,27 @@ class Transformer(keras.Model):
 
         dec_input = tf.ones((bs, 1), dtype=tf.int32) * target_start_token_idx
         dec_logits = []
+        for i in range(self.target_maxlen - 1):
+            dec_out = self.decode(enc, dec_input)
+            # ここで、 warnigs か?
+            # /home/nishi/kivy_env/lib/python3.10/site-packages/keras/src/ops/nn.py:545: UserWarning:
+            logits = self.classifier(dec_out)
+            logits = tf.argmax(logits, axis=-1, output_type=tf.int32)
+            last_logit = tf.expand_dims(logits[:, -1], axis=-1)
+            dec_logits.append(last_logit)
+            dec_input = tf.concat([dec_input, last_logit], axis=-1)
+        return dec_input
+
+
+    @tf.function(input_signature=[tf.TensorSpec([1,600,122],tf.float32)])
+    def __call__(self, source):
+        """Performs inference over one batch of inputs using greedy decoding."""
+        bs = tf.shape(source)[0]
+        enc = self.encoder(source)
+
+        dec_input = tf.ones((bs, 1), dtype=tf.int32)
+        dec_logits = []
+        print("self.target_maxlen:",self.target_maxlen)
         for i in range(self.target_maxlen - 1):
             dec_out = self.decode(enc, dec_input)
             # ここで、 warnigs か?
