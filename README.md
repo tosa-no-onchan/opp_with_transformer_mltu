@@ -29,4 +29,8 @@ Obstacle Path Planner with Transformer and mltu
 
 #### reffrence page.    
 
-  [ROS2 自作 Turtlebot3 による 草刈りロボット開発。#8 Transformer で経路計画をする。](http://www.netosa.com/blog/2024/09/ros2-turtlebot3-8-thetastarplanner.html)
+  [ROS2 自作 Turtlebot3 による 草刈りロボット開発。#8 Transformer で経路計画をする。](http://www.netosa.com/blog/2024/09/ros2-turtlebot3-8-thetastarplanner.html)  
+
+  [Trainning Data](https://huggingface.co/datasets/tosa-no-onchan/opp)  
+
+  [How to make Trainning Data.](https://github.com/tosa-no-onchan/opp_with_transformer_cpp)  
