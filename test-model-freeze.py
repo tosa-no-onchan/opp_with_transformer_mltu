@@ -4,6 +4,12 @@ test-model-freeze.py
 https://jimmy-shen.medium.com/how-to-freeze-graph-in-tensorflow-2-x-3a3238c70f19
 
 https://www.tensorflow.org/guide/saved_model?hl=ja
+
+
+convert frozen.pb to model.onnx
+
+$ python -m tf2onnx.convert --input ./Models/test_opp/a.model_frozen.pb --output a.model.onnx --outputs Identity:0 --inputs source:0
+
 """
 
 import os

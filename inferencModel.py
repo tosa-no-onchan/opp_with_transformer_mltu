@@ -4,7 +4,7 @@ import typing
 import numpy as np
 
 import tensorflow as tf
-from mltu.inferenceModel import OnnxInferenceModel
+#from mltu.inferenceModel import OnnxInferenceModel
 from mltu.preprocessors import WavReader
 from mltu.utils.text_utils import ctc_decoder, get_cer, get_wer
 
@@ -28,64 +28,8 @@ from tools_mltu import *
 from train_transformer_opp_mltu import CustomSchedule
 import cv2
 
-class WavToTextModel(OnnxInferenceModel):
-    def __init__(self, char_list: typing.Union[str, list], *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.char_list = char_list
-
-    def predict(self, data: np.ndarray):
-        data_pred = np.expand_dims(data, axis=0)
-        preds = self.model.run(None, {self.input_name: data_pred})[0]
-        text = ctc_decoder(preds, self.char_list)[0]
-        return text
-
-import matplotlib.pyplot as plt
-
-def plot_spectrogram(spectrogram: np.ndarray, title:str = "", transpose: bool = True, invert: bool = True) -> None:
-    """Plot the spectrogram of a WAV file
-
-    Args:
-        spectrogram (np.ndarray): Spectrogram of the WAV file.
-        title (str, optional): Title of the plot. Defaults to None.
-        transpose (bool, optional): Transpose the spectrogram. Defaults to True.
-        invert (bool, optional): Invert the spectrogram. Defaults to True.
-    """
-    if transpose:
-        spectrogram = spectrogram.T
-
-    if invert:
-        spectrogram = spectrogram[::-1]
-
-    plt.figure(figsize=(15, 5))
-    plt.imshow(spectrogram, aspect="auto", origin="lower")
-    plt.title(f"Spectrogram: {title}")
-    plt.xlabel("Time")
-    plt.ylabel("Frequency")
-    #plt.colorbar()
-    plt.tight_layout()
-    plt.show()
-
-if False:
-    def pred_my(self,model, source):
-        """Performs inference over one batch of inputs using greedy decoding."""
-        bs = tf.shape(source)[0]
-
-        enc = self.encoder(source)
-
-        dec_input = tf.ones((bs, 1), dtype=tf.int32)
-        dec_logits = []
-        print("self.target_maxlen:",self.target_maxlen)
-        for i in range(self.target_maxlen - 1):
-            dec_out = self.decode(enc, dec_input)
-            # ここで、 warnigs か?
-            # /home/nishi/kivy_env/lib/python3.10/site-packages/keras/src/ops/nn.py:545: UserWarning:
-            logits = self.classifier(dec_out)
-            logits = tf.argmax(logits, axis=-1, output_type=tf.int32)
-            last_logit = tf.expand_dims(logits[:, -1], axis=-1)
-            dec_logits.append(last_logit)
-            dec_input = tf.concat([dec_input, last_logit], axis=-1)
-        return dec_input
-
+import onnxruntime as ort
+import onnx
 
 #----------------
 # https://github.com/leimao/Frozen-Graph-TensorFlow/blob/master/TensorFlow_v2/utils.py
@@ -120,9 +64,22 @@ if __name__ == "__main__":
 
     print("configs.model_path:",configs.model_path)
 
+    LOAD_1=True     # ONNX  -->  OK
     LOAD_2=False        # Keras Saved model   --> NG
     LOAD_3=False         # Tensorflow Saved model    --> OK
-    LOAD_4=True        # load frozen model    --> OK
+    LOAD_4=False        # load frozen model    --> OK
+
+    if LOAD_1==True:
+        print("LOAD_1")
+        force_cpu = True
+        providers = ["CUDAExecutionProvider", "CPUExecutionProvider"] if ort.get_device() == "GPU" and not force_cpu else ["CPUExecutionProvider"]
+
+        sess = ort.InferenceSession("./a.model.onnx", providers=providers)
+
+        print("sess.get_inputs()[0]:",sess.get_inputs()[0])
+        # sess.get_inputs()[0]: NodeArg(name='source:0', type='tensor(float)', shape=[1, 600, 122])
+        print("sess.get_outputs()[0]:",sess.get_outputs()[0])
+        # sess.get_outputs()[0]: NodeArg(name='Identity:0', type='tensor(int32)', shape=[1, 150])
 
     if LOAD_2==True:
         print("LOAD_2")
@@ -133,7 +90,6 @@ if __name__ == "__main__":
                 #"CERMetric":CERMetric(configs.vocab),
                 "CustomSchedule":CustomSchedule
                 }
-
         #model = load_model(configs.model_path+'/a.model.keras',safe_mode=False)
         model = keras.saving.load_model(configs.model_path+'/a.model.keras',custom_objects=objs_x,safe_mode=False)
         #model = load_model(configs.model_path+'/a.model.hdf5',custom_objects=objs_x,safe_mode=False)
@@ -179,7 +135,6 @@ if __name__ == "__main__":
                                         inputs=["source:0"],
                                         outputs=["Identity:0"],
                                         print_graph=False)
-
         print("-" * 50)
         print("Frozen model inputs: ")
         print(frozen_func.inputs)
@@ -187,7 +142,6 @@ if __name__ == "__main__":
         print("Frozen model outputs: ")
         print(frozen_func.outputs)
         # [<tf.Tensor 'Identity:0' shape=(1, 150) dtype=int32>]
-
         #for s in frozen_func.__dict__:
         #    print(s)
 
@@ -217,6 +171,8 @@ if __name__ == "__main__":
         dt_in = np.expand_dims(dt_in,axis=0)
 
         print("go pred!!")
+        if LOAD_1==True:
+            text = sess.run(["Identity:0"], {'source:0': dt_in})[0]
         if LOAD_2==True:
             #text = model.generate(tf.constant(dt_in),1)
             #text = model.generate(dt_in,1)
