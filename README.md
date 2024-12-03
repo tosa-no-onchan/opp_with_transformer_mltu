@@ -12,30 +12,7 @@ Obstacle Path Planner with Transformer and mltu
 
     $ python test-model-freeze.py  
 
-#### 3. predict  
-
-    $ python inferencModel.py  
-    unzip a.model_frozen.pb.zip
-    use Models/test_opp/a.model_frozen.pb  
-    train loss > 0.7  
-  
-#### 3. Env.  
-
-   tensorflow==2.16.1  with cuda  
-   keras==3.3.3  
-   mlut==1.2.5  
-   python 3.10.12  
-
-
-#### 4. reffrence page.    
-
-  [ROS2 自作 Turtlebot3 による 草刈りロボット開発。#8 Transformer で経路計画をする。](http://www.netosa.com/blog/2024/09/ros2-turtlebot3-8-thetastarplanner.html)  
-
-  [Trainning Data](https://huggingface.co/datasets/tosa-no-onchan/opp)  
-
-  [How to make Trainning Data.](https://github.com/tosa-no-onchan/opp_with_transformer_cpp)  
-
-#### 5 Convert a.model_frozen.pb to ONNX  
+#### 3. Convert a.model_frozen.pb to ONNX  
 
     $ python -m tf2onnx.convert --input ./Models/test_opp/a.model_frozen.pb --output a.model.onnx --outputs Identity:0 --inputs source:0  
 
@@ -53,3 +30,29 @@ Obstacle Path Planner with Transformer and mltu
 ````
 
   [Frozen Graph TensorFlow 2.x](https://github.com/leimao/Frozen-Graph-TensorFlow/tree/master/TensorFlow_v2)  
+
+
+#### 4. predict  
+
+    $ python inferencModel.py  
+    unzip a.model.onnx.zip
+    use a.model.onnx  
+    train loss > 0.7  
+  
+#### 5. Env.  
+
+   Ubuntu Mate 22.04  
+   Virtual Env  
+   tensorflow==2.16.1  with cuda  
+   keras==3.3.3  
+   mlut==1.2.5  
+   python 3.10.12  
+
+
+#### 6. reffrence page.    
+
+  [ROS2 自作 Turtlebot3 による 草刈りロボット開発。#8 Transformer で経路計画をする。](http://www.netosa.com/blog/2024/09/ros2-turtlebot3-8-thetastarplanner.html)  
+
+  [Trainning Data](https://huggingface.co/datasets/tosa-no-onchan/opp)  
+
+  [How to make Trainning Data.](https://github.com/tosa-no-onchan/opp_with_transformer_cpp)  
