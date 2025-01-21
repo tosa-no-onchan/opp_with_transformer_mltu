@@ -114,3 +114,12 @@ if LOAD_5==True:
         # [<tf.Tensor 'Identity:0' shape=(1, 150) dtype=int32>]
         tf.io.write_graph(graph_or_graph_def=constantGraph.graph, logdir=configs.model_path, name="a.model_frozen.pb",as_text=False) 
 
+        # add by nishi 2024.12.13
+        converter = tf.lite.TFLiteConverter.from_concrete_functions([concrete_func])
+        converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS, tf.lite.OpsSet.SELECT_TF_OPS]
+
+        tflite_model = converter.convert()
+
+        with open('a.model.tflite', 'wb') as f:
+            f.write(tflite_model)
+
